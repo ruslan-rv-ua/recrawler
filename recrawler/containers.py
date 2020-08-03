@@ -1,6 +1,7 @@
 """Containers module."""
 
 from collections import UserDict
+from typing import Iterable
 from urllib.parse import urldefrag
 
 
@@ -32,6 +33,9 @@ class LinksDeque(UserDict):
 
     def __lshift__(self, link: str) -> bool:
         return self.add(link)
+
+    def add_multiple(self, links: Iterable) -> int:
+        return sum(self.add(link) for link in links)
 
     def __contains__(self, link: str) -> bool:
         return normalize_url(link) in self.data
