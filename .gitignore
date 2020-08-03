@@ -103,3 +103,4 @@ ENV/
 
 # IDE settings
 .vscode/
+recrawler/async_get_web.py
