@@ -2,7 +2,7 @@
 
 import logging
 from .containers import LinksDeque
-from async_get_web import get_webpages
+from .async_get_web import get_webpages
 
 DEFAULT_REQUESTS_AT_ONES = 1
 
@@ -64,3 +64,8 @@ class Crawler:
 
             # also mark as seen all gotten links
             self.seen_links.add_multiple(links_to_get)
+
+        self.logger.info(f'Crawler finished. {collected_urls_count} links found'))
+
+    def __iter__(self):
+        yield from self.crawl()
