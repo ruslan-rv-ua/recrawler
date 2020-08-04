@@ -1,7 +1,7 @@
 """Containers module."""
 
 from collections import UserDict
-from typing import Iterable
+from typing import Iterable, Generator
 from urllib.parse import urldefrag
 
 
@@ -16,15 +16,42 @@ def normalize_url(url: str) -> str:
     return urldefrag(url).url.rstrip('/')
 
 
-class LinksDeque(UserDict):
+class LinksSet():
+    def __init__(self):
+        self.data = set()
+
+    def add(self, link: str) -> bool:
+        norm_url = normalize_url(link)
+        if norm_url in self.data:
+            return False
+        self.data.add(norm_url)
+        return True
+
+    def __lshift__(self, link: str) -> bool:
+        return self.add(link)
+
+    def add_multiple(self, links: Iterable) -> int:
+        return sum(self.add(link) for link in links)
+
+    def __contains__(self: object, link: str) -> bool:
+        return normalize_url(link) in self.data
+
+    def __len__(self) -> int:
+        return len(self.data)
+
+
+class LinksQueue(UserDict):
     """Deque of urls.
     Only normalized urls stored.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, base_url=None) -> None:
+        self.base_url = base_url
         super().__init__()
 
     def add(self, link: str) -> bool:
+        if self.base_url and not link.startswith(self.base_url):
+            return False
         norm_url = normalize_url(link)
         if norm_url in self.data:
             return False
@@ -37,14 +64,14 @@ class LinksDeque(UserDict):
     def add_multiple(self, links: Iterable) -> int:
         return sum(self.add(link) for link in links)
 
-    def __contains__(self, link: str) -> bool:
+    def __contains__(self: object, link: str) -> bool:
         return normalize_url(link) in self.data
 
     def pop(self) -> str:
-        norm_link, link = self.data.popitem()
+        _, link = self.data.popitem()
         return link
 
-    def iter_pop_count(self, count: int):  # TODO: typinig.Generator
+    def iter_pop_count(self, count: int) -> Generator:
         while self.data and count:
             yield self.pop()
             count -= 1

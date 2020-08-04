@@ -1,16 +1,19 @@
 """Main module."""
 
 import logging
-from .containers import LinksDeque
-from .async_get_web import get_webpages
 
-DEFAULT_REQUESTS_AT_ONES = 1
+from async_get_web import get_webpages
+
+from .containers import LinksQueue, LinksSet
+
+DEFAULT_THREADS = 1
 
 
 class Crawler:
-    def __init__(self, link: str, requests_at_ones: int = DEFAULT_REQUESTS_AT_ONES, logger: logging.Logger = None) -> None:
+    def __init__(self, link: str, *, base_url=None, threads: int = DEFAULT_THREADS, logger: logging.Logger = None) -> None:
         self.link = link
-        self.requests_at_ones = requests_at_ones
+        self.base_url = base_url if base_url else link
+        self.threads = threads
         self.logger = logger or self._get_logger()
 
     def _get_logger(self):
@@ -23,32 +26,23 @@ class Crawler:
         logger.setLevel(logging.INFO)
         return logger
 
-    def _enqueue_link(self, link: str) -> bool:
-        self.logger.debug(f"Enqueuing link: {link}")
-        if link in self.seen_links:
-            self.logger.debug(f'Already seen, skippiing')
-            return False
-        # TODO: filter foreighn links!
-        self.links_queue.add(link)
-        return True
-
     def crawl(self) -> None:
-        self.seen_links = LinksDeque()
-        self.links_queue = LinksDeque()
-        self._enqueue_link(self.link)
-        self.logger.info(f'Crawler started')
-        collected_urls_count = 0  # TODO: is it needed?
-        while self.links_queue:
-            links_to_get = self.links_queue.pop_count(self.requests_at_ones)
+        seen_links = LinksSet()
+        links_queue = LinksQueue(base_url=self.base_url)
+        links_queue.add(self.link)
+        self.logger.info(f'Crawling started')
+        collected_urls_count = 0
+        while links_queue:
+            links_to_get = links_queue.pop_count(self.threads)
             self.logger.info(
-                f'Collected: {collected_urls_count}. Enqueued: {len(self.links_queue)}. Getting: {len(links_to_get)}')
+                f'Collected: {collected_urls_count}. Enqueued: {len(links_queue)}. Getting: {len(links_to_get)}')
             webpages = [webpage for webpage in get_webpages(
                 links_to_get) if webpage.error is None]
             for webpage in webpages:
                 actual_url = webpage.url
-                if actual_url in self.seen_links:
+                if actual_url in seen_links:
                     continue
-                self.seen_links.add(actual_url)
+                seen_links.add(actual_url)
                 yield webpage
                 collected_urls_count += 1
 
@@ -59,13 +53,14 @@ class Crawler:
                     self.logger.debug(
                         f'Error parsing absolute links: {webpage.response.url}')
                     continue
-                for link in links:
-                    self._enqueue_link(link)
+                links_queue.add_multiple(
+                    link for link in links if link not in seen_links)
 
             # also mark as seen all gotten links
-            self.seen_links.add_multiple(links_to_get)
+            seen_links.add_multiple(links_to_get)
 
-        self.logger.info(f'Crawler finished. {collected_urls_count} links found'))
+        self.logger.info(
+            f'Crawling finished. {collected_urls_count} links found')
 
     def __iter__(self):
         yield from self.crawl()
