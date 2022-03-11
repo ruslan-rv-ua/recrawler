@@ -1,7 +1,7 @@
 """Containers module."""
 
 from collections import UserDict
-from typing import Iterable, Generator
+from typing import Generator, Iterable
 from urllib.parse import urldefrag
 
 
